@@ -17,15 +17,15 @@ class FormatDataPipeline(object):
     #         return item
     def process_item(self, item, spider):
 
-        item['name'] = ListToString(item['name'])
-        item['artist'] = ListToString(item['artist'])
-        item['type'] = ListToString(item['type'])
-        item['releaseDate'] = ListToString(item['releaseDate']).replace(',', '')
-        item['releaseYear'] = ListToString(item['releaseYear'])
-        item['recordedDate'] = ListToString(item['recordedDate'])
-        item['rating'] = ListToString(item['rating'])
-        item['totalRatings'] = ListToString(item['totalRatings'])
-        item['primaryGenres'] = ListToString(item['primaryGenres'], ', ')
-        item['secondaryGenres'] = ListToString(item['secondaryGenres'], ', ')
-        item['language'] = ListToString(item['language'])
+        # item['name'] = ListToString(item['name'])
+        # item['artist'] = ListToString(item['artist'])
+        # item['type'] = ListToString(item['type'])
+        # item['releaseDate'] = ListToString(item['releaseDate']).replace(',', '')
+        # item['releaseYear'] = ListToString(item['releaseYear'])
+        # item['recordedDate'] = ListToString(item['recordedDate'])
+        # item['rating'] = ListToString(item['rating'])
+        # item['totalRatings'] = ListToString(item['totalRatings'])
+        # item['primaryGenres'] = ListToString(item['primaryGenres'], ', ')
+        # item['secondaryGenres'] = ListToString(item['secondaryGenres'], ', ')
+        # item['language'] = ListToString(item['language'])
         return item

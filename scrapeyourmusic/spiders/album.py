@@ -1,49 +1,90 @@
-from scrapy.spider import Spider
+import re
+
+from pyquery import PyQuery as pq
+
+import scrapy
+from scrapeyourmusic.items import Album
 from scrapy.selector import Selector
 
-from scrapeyourmusic.items import Album
 
-
-class AlbumSpider(Spider):
+class AlbumSpider(scrapy.Spider):
     name = "album_scraper"
     allowed_domains = ["rateyourmusic.com"]
-    start_urls = [
-        "http://rateyourmusic.com/release/album/radiohead/in_rainbows/"
-    ]
+
+    def start_requests(self):
+        request = scrapy.Request(
+            'https://rateyourmusic.com', callback=self.parse)
+        request.meta['proxy'] = 'https://137.135.166.225:8130'
+        yield [request]
 
     def parse(self, response):
-        """
-        The lines below is a spider contract. For more info see:
-        http://doc.scrapy.org/en/latest/topics/contracts.html
+        if response.status == 503:
+            print(response.text)
+        pq_resp = pq(response.text)
+        album_anchors = pq_resp('a') \
+            .filter(lambda i, this: str(pq(this).attr('href')).find('/release/') != -1) \
+            .filter(lambda i, this: len(pq(this).children('img')) != 1)
+        for album in album_anchors:
+            album_href = pq(album).attr('href')
+            request = scrapy.Request(
+                'https://rateyourmusic.com' + album_href, callback=self.parse_album)
+            request.meta['proxy'] = 'https://137.135.166.225:8130'
+            yield request
 
-        @url http://rateyourmusic.com/release/album/radiohead/in_rainbows/
-        @scrapes name
-        """
-
-        # The most equivalent thing in xpath to css selector to class. Found here:
-        # http://stackoverflow.com/questions/8808921/selecting-a-css-class-with-xpath
-        sel = response.xpath('//*[contains(concat(" ", normalize-space(@class), " "), " section_main_info ")]')
-
-        album_info = sel.xpath('.//table[@class="album_info"]')
+    def parse_album(self, response):
+        if response.status == 503:
+            print(response.text)
+        pq_body = pq(response.text)
+        section_main_info = pq_body('.section_main_info')
+        album_info = pq_body('table.album_info')
 
         item = Album()
 
         item['url'] = response.url
-        item['name'] = sel.xpath('.//div[@class="album_title"]/text()').extract()
-        item['artist'] = album_info.xpath('.//a[@class="artist"]/text()').extract()
-        item['type'] = album_info.xpath('.//tr')[1].xpath('.//td/text()').extract()
-        item['releaseDate'] = album_info.xpath('.//tr')[2].xpath('.//td/text()').extract()
-        item['releaseYear'] = album_info.xpath('.//tr')[2].xpath('.//td/a/b/text()').extract()
-        item['recordedDate'] = album_info.xpath('.//tr')[3].xpath('.//td/text()').extract()
-        item['rating'] = album_info.xpath('.//tr')[4].xpath('.//td/span/span[@class="avg_rating"]/text()').extract()
-        item['totalRatings'] = album_info.xpath('.//tr')[4].xpath('.//td/span/span[@class="num_ratings"]/b/span/text()').extract()
+        item['name'] = section_main_info('.album_title').text()
+        item['artist'] = album_info('.artist').text()
+        item['type'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Type') \
+            .siblings('td').text()
+        item['releaseDate'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Released') \
+            .siblings('td').text()
+        item['releaseYear'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Released') \
+            .siblings('td').find('a b').text()
 
-        rankings = album_info.xpath('.//tr')[5].xpath('.//td')
-        item['ranks'] =  rankings.xpath('.//b/text()').extract()
-        item['rankDates'] = rankings.xpath('.//a/text()').extract()
+        item['recordedDate'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Recorded') \
+            .siblings('td').text()
 
-        item['primaryGenres'] = album_info.xpath('.//tr[@class="release_genres"]/td/div/span[@class="release_pri_genres"]/a/text()').extract()
-        item['secondaryGenres'] = album_info.xpath('.//tr[@class="release_genres"]/td/div/span[@class="release_sec_genres"]/a/text()').extract()
-        item['language'] = album_info.xpath('.//tr')[7].xpath('.//td/text()').extract()
+        item['rating'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'RYM Rating') \
+            .siblings('td').find('span span.avg_rating').text().strip()
 
-        return item
+        item['totalRatings'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'RYM Rating') \
+            .siblings('td').find('span span.num_ratings b span').text().strip()
+
+        item['rank'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Ranked') \
+            .siblings('td').find('b').text().strip()
+
+        item['rankYear'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Ranked') \
+            .siblings('td').find('a').eq(0).text().strip()
+
+        item['primaryGenres'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Genres') \
+            .siblings('td').find('div span.release_pri_genres a.genre') \
+            .map(lambda i, this: pq(this).text())
+
+        item['secondaryGenres'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Genres') \
+            .siblings('td').find('div span.release_sec_genres a.genre') \
+            .map(lambda i, this: pq(this).text())
+
+        item['language'] = album_info.find('th') \
+            .filter(lambda i, this: pq(this).text() == 'Language') \
+            .siblings('td').text()
+
+        yield item

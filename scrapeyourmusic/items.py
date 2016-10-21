@@ -1,4 +1,4 @@
-from scrapy.item import Item, Field
+from scrapy.item import Field, Item
 
 
 class Album(Item):
@@ -12,11 +12,12 @@ class Album(Item):
     recordedDate = Field()
     rating = Field()
     totalRatings = Field()
-    ranks = Field()
-    rankDates = Field()
+    rank = Field()
+    rankYear = Field()
     primaryGenres = Field()
     secondaryGenres = Field()
     language = Field()
+
 
 class Artist(Item):
 
@@ -29,3 +30,8 @@ class Artist(Item):
     liveAlbums = Field()
     EPs = Field()
     singles = Field()
+
+
+class Proxy(Item):
+    ip_address = Field()
+    port = Field()
